@@ -1,0 +1,166 @@
+//Álvaro Cirino
+//Data logger/controlador de temperatura utilizando 4 sensores ds18b20
+//Preto     = GND
+//Azul      = Data (Pin 8): Resistor entre VCC e data de 4.7k
+//Vermelho  = +5 ou +3.3 V
+
+//Carregando as bibliotecas necessárias
+#include <avr/wdt.h>
+#include <Wire.h>         
+#include <OneWire.h>           
+#include <DallasTemperature.h>
+
+
+//Definindo os pinos do 
+#define ONE_WIRE_BUS_PIN 9  //Pino que os sensores estão conectados
+#define detectorTEMP 3      //Configurando o pino de alerta de mau funcionamento do sensor de temperatura
+#define r1 5 //Definindo os pinos de saída do rele 1 na porta D5
+#define r2 6 //Definindo os pinos de saída do rele 2 na porta D6
+#define r3 7 //Definindo os pinos de saída do rele 3 na porta D7
+#define r4 8 //Definindo os pinos de saída do rele 4 na porta D8
+
+//---------------------- Dados para configurar ----------------------\\
+
+// Configurar a temperatura AQUI SE CONFIGURA A TEMPERATURA DESEJADA
+float conftemp1 = 29.00;
+float conftemp2 = 29.00;
+float conftemp3 = 29.00;
+float conftemp4 = 26.00;
+
+// Padronizando temperatura
+// Verificar diferença para cada sensor com fator de correção usado 0,221  0,007 01,99 1,311
+
+float ajuste_sensor1 = 00.22;
+float ajuste_sensor2 = 00.01;
+float ajuste_sensor3 = 01.99;
+float ajuste_sensor4 = 01.31;
+
+//-------------------------------------------------------------------\\
+
+OneWire oneWire(ONE_WIRE_BUS_PIN);     // Configurando ONE WIRE
+DallasTemperature sensors(&oneWire);   // oneWire para Dallas Temperature.
+
+//Declarando variável do contador
+int cont = 60;
+
+// Definindo o endereço de cada sensor.
+DeviceAddress Probe01 = { 0x28, 0xB8, 0x65, 0x56, 0xB5, 0x01, 0x3C, 0xFA };
+DeviceAddress Probe02 = { 0x28, 0x84, 0x72, 0x56, 0xB5, 0x01, 0x3C, 0x47 };
+DeviceAddress Probe03 = { 0x28, 0x66, 0x8B, 0x56, 0xB5, 0x01, 0x3C, 0x55 };
+DeviceAddress Probe04 = { 0x28, 0x09, 0xCC, 0x56, 0xB5, 0x01, 0x3C, 0x0A };
+
+float temp1;
+float temp2;
+float temp3;
+float temp4;
+
+
+
+void setup()
+{   
+  //Inicializando a serial (APENAS PARA DEBUG).
+  Serial.begin(9600);
+  
+  
+  //Inicializando bibliotecas       
+  Wire.begin();
+  sensors.begin();
+ 
+  // Configurando pino de saída dos reles
+  pinMode(r1, OUTPUT); 
+  pinMode(r2, OUTPUT);
+  pinMode(r3, OUTPUT);
+  pinMode(r4, OUTPUT);
+
+  digitalWrite(r1, HIGH);
+  digitalWrite(r2, HIGH);
+  digitalWrite(r3, HIGH);
+  digitalWrite(r4, HIGH);
+  
+  // Configurando pinos dos leds de alerta 
+  pinMode(detectorTEMP, OUTPUT);
+
+   
+  // Setando a resolução dos sensores para 12 bits (9 bits mínimo e 12 bits máximo); 
+  sensors.setResolution(Probe01, 12);
+  sensors.setResolution(Probe02, 12);
+  sensors.setResolution(Probe03, 12);
+  sensors.setResolution(Probe04, 12);
+
+
+}
+
+void loop(){
+
+  
+  //Teste temperatura
+  if(temp1 <= -110.00){
+    digitalWrite(detectorTEMP, HIGH); //Se SD não estiver presente, led acende.
+    digitalWrite(r1, HIGH);
+  }
+  
+   if(temp2 <= -110.00){
+    digitalWrite(detectorTEMP, HIGH); //Se SD não estiver presente, led acende.
+    digitalWrite(r2, HIGH); 
+  }
+     
+   if(temp3 <= -110.00){
+    digitalWrite(detectorTEMP, HIGH); //Se SD não estiver presente, led acende.
+    digitalWrite(r3, HIGH);
+  }   
+  
+   if(temp4 <= -110.00){
+    digitalWrite(detectorTEMP, HIGH); //Se SD não estiver presente, led acende.
+    digitalWrite(r4, HIGH);    
+  }
+             
+  //// Controlando a temperatura
+  if(cont == 60){
+    sensors.requestTemperatures(); //Solicitando os valores da temperatura nos sensores
+    temp1 = (sensors.getTempC(Probe01))+ ajuste_sensor1;
+    temp2 = (sensors.getTempC(Probe02))+ ajuste_sensor2;
+    temp3 = (sensors.getTempC(Probe03))+ ajuste_sensor3;
+    temp4 = (sensors.getTempC(Probe04))+ ajuste_sensor4;
+    Serial.println();
+    
+    if (conftemp1 <= temp1){ //comparando a temperatura 
+      digitalWrite(r1, HIGH);
+      Serial.print(temp1);  
+      Serial.println("°C Termostatus 1  Desligado");
+    }else{
+      digitalWrite(r1, LOW);
+      Serial.print(temp1); 
+      Serial.println("°C Termostatus 1  Ligado");        
+      }
+    if (conftemp2 <= temp2){
+      digitalWrite(r2, HIGH);
+      Serial.print (temp2);  
+      Serial.println("°C Termostatus 2  Desligado");
+    }else{
+      digitalWrite(r2, LOW);
+      Serial.print(temp2); 
+      Serial.println("°C Termostatus 2  Ligado"); 
+    }
+    if (conftemp3 <= temp3){
+      digitalWrite(r3, HIGH); 
+      Serial.print(temp3);   
+      Serial.println("°C Termostatus 7  Desligado");
+    }else{
+      digitalWrite(r3, LOW);
+      Serial.print(temp3); 
+      Serial.println("°C Termostatus 7  Ligado"); 
+    }
+    if (conftemp4 <= temp4){ 
+      digitalWrite(r4, HIGH);   
+      Serial.print(temp4); 
+      Serial.println("°C Termostatus 8  Desligado");
+    }else{
+      digitalWrite(r4, LOW);
+      Serial.print(temp4); 
+      Serial.println("°C Termostatus 8  Ligado");
+    }
+    cont = 1;
+    } 
+    cont = cont + 1;               
+    delay(1000);      //Não modificar
+}
